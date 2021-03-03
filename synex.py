@@ -11,12 +11,13 @@ import threading
 import time
 import requests
 
-filetype_content_map = {
-    "xml": "application/xml",
-    "json": "application/json",
-    "jpeg": "image/jpg",
-    "jpg": "image/jpg"
-}
+
+class CourierError(Exception):
+    pass
+
+class HandlerError(Exception):
+    pass
+
 
 def main():
     """Main function"""
@@ -42,15 +43,22 @@ def main():
     signal.signal(signal.SIGINT, exit_gracefully)
     signal.signal(signal.SIGTERM, exit_gracefully)
 
-    endpoints = (config["global"]["endpoints"].replace(' ', '').split(','))
+    if "destinations" not in config["global"]:
+        missing_config_key_error("destionations", "global", args.conf)
+        sys.exit(1)
+
+    destinations = (config["global"]["destinations"].replace(' ', '').split(','))
 
     handlers = []
-    for endpoint in endpoints:
+    for destination in destinations:
         try:
-            courier = Courier(config[endpoint]["url"])
-            handlers.append(DestinationHandler(courier, config[endpoint]["dir"], endpoint))
+            courier = get_courier(config[destination])
+            #handlers.append(DestinationHandler(courier, config[destination]["dir"], destination))
+            handlers.append(get_handler(config[destination], destination, courier))
         except KeyError:
-            missing_config_section_error(endpoint, args.conf)
+            missing_config_section_error(destination, args.conf)
+        except CourierError:
+            logging.error("Could not start delivery for destination %s, check your config", destination)
 
     for handler in handlers:
         handler.start()
@@ -63,11 +71,12 @@ def main():
             logging.info("Stopping threads, closing program")
             for handler in handlers:
                 handler.stop()
+            for handler in handlers:
                 handler.join()
             sys.exit(0)
 
 def exit_gracefully(signum, frame):
-    """Iterrupt signal handler for graceful shutdown"""
+    """Iterrupt signal handler for graceful shutdown."""
     logging.debug("captured signal %d", signum)
 
     raise SystemExit
@@ -75,104 +84,57 @@ def exit_gracefully(signum, frame):
 
 def missing_config_section_error(section_name, conf_file_path):
     """Log error about missing section in configfile."""
-    logging.error("Missinf %s section in configfile %s", section_name, conf_file_path)
+    logging.error("Missing %s section in configfile %s", section_name, conf_file_path)
 
 
-class DestinationHandler(threading.Thread):
-    """Class object creates thread that handles incoming data"""
-
-    def __init__(self, courier, outbox, name, shipment_limit=100):
-        self.courier = courier
-        self.outbox = outbox
-        self.shipment_limit = shipment_limit
-
-        threading.Thread.__init__(self)
-        #self.daemon = True
-        self.name = name + "_handler"
-        self.should_run = True
-
-        if not os.path.isdir(outbox):
-            logging.error("Outbox dir %s doen not exist, this handler will not run.")
-            self.should_run = False
-
-    def dispatch(self):
-        """Check outbox dir for files to send and use courier object to send them."""
-        packages = os.listdir(self.outbox)
-        self.courier.deliver_packages(packages[:self.shipment_limit], self.outbox)
-
-    def run(self):
-        """Thread run method"""
-        logging.info("Starting handler thread.")
-        while self.should_run:
-            self.dispatch()
-            time.sleep(15)
-
-    def stop(self):
-        """Stops thread infinite loop"""
-        self.should_run = False
+def missing_config_key_error(key_name, section_name, conf_file_path):
+    """Log error about missing key in section in configfile."""
+    logging.error("Missing %s in %s section in configfile %s",key_name, section_name, conf_file_path)
 
 
-class Courier():
-    """Class used for handling data delivery."""
+def get_courier(destination_config):
+    """Returns courier object created acording to destination config."""
+    try:
+        courier_type = destination_config["protocol"]
+        endpoint = destination_config["endpoint"]
+    except KeyError:
+        logging.error("Missing keys in destionation configuration")
+        raise CourierError
 
-    def __init__(self, receiver):
-        self.receiver = receiver
-
-    def deliver_packages(self, packages, outbox):
-        """Use subprocesses to send list of packages"""
-        processes = []
-        for package in packages:
-            process = multiprocessing.Process(target=self.delivery, args=(package, outbox,))
-            process.start()
-            processes.append(process.sentinel)
-
-
-    def delivery(self, package, outbox):
-        """Send file form outbox dir using http POST, file is deleted if code 200 was returned."""
-        logging.debug(
-            "Courier will try to deliver %s from outbox %s to %s", package, outbox, self.receiver
-        )
-        package_filepath = os.path.join(outbox, package)
-        parts = package.split("-")
-        package_sender_location = parts[0] + "=" + parts[1]
-
-        try:
-            file_type = package.split(".")[-1]
-            package_content_type = filetype_content_map[file_type]
-        except KeyError:
-            logging.error("Wrong file type %s", file_type)
-            return False
-
-        headers = {
-            "file-name": package,
-            "content-type": package_content_type,
-            "location": package_sender_location
-        }
-        try:
-            with open(package_filepath, "rb") as package_file:
-                package_content = package_file.read()
-        except IOError:
-            logging.error("Error reading file %s", package)
-            return False
-
-        try:
-            request = requests.post(
-                self.receiver, headers=headers, data=package_content, timeout=10
-            )
-        except requests.RequestException:
-            logging.error("Failed to deliver package %s", package)
-            return False
-
-        if request.status_code == 200:
-            os.remove(package_filepath)
-            logging.error("Package %s delivered", package)
+    try:
+        if courier_type == "http":
+            from couriers.http import Courier
+        elif courier_type == "rsync":
+            from couriers.rsync import Courier
         else:
-            logging.error(
-                "Failed to deliver package %s, response code: %s", package, request.status_code
-            )
-            return False
+            logging.error("Protocol %s is not supported for delivery", courier_type)
+            raise CourierError
+    except ImportError:
+        logging.error("Failed to import %s courier module", courier_type)
+        raise CourierError
 
-        return True
+    return Courier(endpoint)
+
+
+def get_handler(destination_config, destination, courier):
+    """Returns destination handler according to destination config."""
+    try:
+        inbox_dir = destination_config["dir"]
+        handler_type = destination_config["input_handler"]
+    except KeyError:
+        logging.error("Missing keys in destionation configuration")
+        raise CourierError
+
+    try:
+        if handler_type == "sorted_neurocar":
+            from handlers.sorted_neurocar import DestinationHandler
+        else:
+            from handlers.handler import DestinationHandler
+    except ImportError:
+        logging.error("Failed to import %s handler module", handler_type)
+        raise HandlerError
+
+    return DestinationHandler(courier, inbox_dir, destination)
 
 
 if __name__ == "__main__":
