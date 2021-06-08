@@ -1,0 +1,8 @@
+archive
+*.log
+.git
+black.out
+pylint.out
+**/tests
+**/__pycache__
+.pytest*

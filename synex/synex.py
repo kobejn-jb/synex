@@ -15,6 +15,7 @@ import requests
 class CourierError(Exception):
     pass
 
+
 class HandlerError(Exception):
     pass
 
@@ -36,7 +37,11 @@ def main():
         logging.basicConfig(
             filename=config["global"]["logfile"],
             level=logging.DEBUG,
-            format="%(asctime)s %(levelname)s %(threadName)s %(message)s"
+            format="%(asctime)s %(levelname)s %(threadName)s %(message)s",
+        )
+    else:
+        logging.basicConfig(
+            stream=sys.stdout, level=logging.DEBUG, format="%(asctime)s %(levelname)s %(threadName)s %(message)s"
         )
     logging.debug("Starting SynEx, data delivery tool.")
 
@@ -47,13 +52,13 @@ def main():
         missing_config_key_error("destionations", "global", args.conf)
         sys.exit(1)
 
-    destinations = (config["global"]["destinations"].replace(' ', '').split(','))
+    destinations = config["global"]["destinations"].replace(' ', '').split(',')
 
     handlers = []
     for destination in destinations:
         try:
             courier = get_courier(config[destination])
-            #handlers.append(DestinationHandler(courier, config[destination]["dir"], destination))
+            # handlers.append(DestinationHandler(courier, config[destination]["dir"], destination))
             handlers.append(get_handler(config[destination], destination, courier))
         except KeyError:
             missing_config_section_error(destination, args.conf)
@@ -75,9 +80,10 @@ def main():
                 handler.join()
             sys.exit(0)
 
+
 def exit_gracefully(signum, frame):
     """Iterrupt signal handler for graceful shutdown."""
-    logging.debug("captured signal %d", signum)
+    logging.debug("Captured signal %d, will shutdown gracefully", signum)
 
     raise SystemExit
 
@@ -89,7 +95,7 @@ def missing_config_section_error(section_name, conf_file_path):
 
 def missing_config_key_error(key_name, section_name, conf_file_path):
     """Log error about missing key in section in configfile."""
-    logging.error("Missing %s in %s section in configfile %s",key_name, section_name, conf_file_path)
+    logging.error("Missing %s in %s section in configfile %s", key_name, section_name, conf_file_path)
 
 
 def get_courier(destination_config):
@@ -103,9 +109,9 @@ def get_courier(destination_config):
 
     try:
         if courier_type == "http":
-            from couriers.http import Courier
+            from couriers.http import CourierHttp as Courier
         elif courier_type == "rsync":
-            from couriers.rsync import Courier
+            from couriers.rsync import CourierRsync as Courier
         else:
             logging.error("Protocol %s is not supported for delivery", courier_type)
             raise CourierError
@@ -126,15 +132,15 @@ def get_handler(destination_config, destination, courier):
         raise CourierError
 
     try:
-        if handler_type == "sorted_neurocar":
-            from handlers.sorted_neurocar import DestinationHandler
+        if handler_type == "sorted":
+            from handlers.sorted import SortedHandler as Handler
         else:
-            from handlers.handler import DestinationHandler
+            from handlers.handler import DestinationHandler as Handler
     except ImportError:
         logging.error("Failed to import %s handler module", handler_type)
         raise HandlerError
 
-    return DestinationHandler(courier, inbox_dir, destination)
+    return Handler(courier, destination_config, destination)
 
 
 if __name__ == "__main__":
