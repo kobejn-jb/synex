@@ -9,9 +9,6 @@ clean: ## Deletes non essential files
 	rm -rf temp
 	rm -rf archive
 
-prepare: clean ## Creates archive folder
-	mkdir -p ${CURDIR}/archive
-
 stylecheck: black pylint ## Runs stylechecker and static code analysis, read only mode
 
 black: ## Runs black stylechecker in read only mode
