@@ -58,7 +58,6 @@ def main():
     for destination in destinations:
         try:
             courier = get_courier(config[destination])
-            # handlers.append(DestinationHandler(courier, config[destination]["dir"], destination))
             handlers.append(get_handler(config[destination], destination, courier))
         except KeyError:
             missing_config_section_error(destination, args.conf)
