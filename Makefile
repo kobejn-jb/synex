@@ -19,7 +19,7 @@ tar:
 	-czf archive/synex.tgz synex
 
 # Docker specific Make commands are below
-IMAGE_REGISTRY ?= synex
+IMAGE_REGISTRY ?= kobejn/synex
 TAG ?= 0.1
 IMAGE ?= "$(IMAGE_REGISTRY):$(TAG)"
 TEST_IMAGE ?= "$(IMAGE_REGISTRY):test"
@@ -61,7 +61,7 @@ build-image-test: ## Build container image for local testing
 build-image-release: ## Build release docker image
 	docker build --target release -t $(IMAGE) .
 
-push: ecr_login ## Push Kubernetes type image to Dockerhub. Use variable TAG
+push: ## Push Kubernetes type image to Dockerhub. Use variable TAG
 	docker push $(IMAGE);
 
 help: ## Display this help. Default target
