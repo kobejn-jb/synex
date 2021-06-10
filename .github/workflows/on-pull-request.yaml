@@ -1,0 +1,17 @@
+name: Handle PRs to main branch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v2
+    - name: run stylecheck
+      run: make stylecheck
+    - name: run tests
+      run: make unittest
