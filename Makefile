@@ -5,6 +5,9 @@ CLEAN_TARGETS = "*.out" "*.tar" "*.tgz" "*.gz"
 clean: ## Deletes non essential files
 	for i in $(CLEAN_TARGETS); do find . -name "$$i" -delete; done
 
+prepare: clean ## Creates out dir
+	mkdir -p ${CURRENT_DIR}/out
+
 package: tar ## Creates the application package in the archive dir
 
 tar:

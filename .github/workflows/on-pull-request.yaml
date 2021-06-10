@@ -11,7 +11,9 @@ jobs:
     steps:
     - name: checkout repo
       uses: actions/checkout@v2
+    - name: prepare env for testing
+      run: make prepare
     - name: run stylecheck
-      run: make stylecheck
+      run: make black
     - name: run tests
       run: make unittest
