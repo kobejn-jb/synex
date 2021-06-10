@@ -24,7 +24,7 @@ TAG ?= 0.1
 IMAGE ?= "$(IMAGE_REGISTRY):$(TAG)"
 TEST_IMAGE ?= "$(IMAGE_REGISTRY):test"
 
-DOCKER_RUN_CMD = docker run -it --rm \
+DOCKER_RUN_CMD = docker run --rm \
 		-v $(CURRENT_DIR)/synex/:/opt/synex \
 		-v $(CURRENT_DIR)/synex.conf:/etc/synex.conf \
 		-v $(CURRENT_DIR)/tests:/opt/synex-tests \
@@ -39,7 +39,13 @@ UID = $(shell id -u)
 GID = $(shell id -g)
 
 local-run: build-image-test ## Run bash in synex test container locally
-	$(DOCKER_RUN_CMD) /bin/bash || true
+	docker run -it --rm \
+		-v $(CURRENT_DIR)/synex/:/opt/synex \
+		-v $(CURRENT_DIR)/synex.conf:/etc/synex.conf \
+		-v $(CURRENT_DIR)/tests:/opt/synex-tests \
+		-v $(CURRENT_DIR)/scripts:/opt/scripts \
+		-v $(CURRENT_DIR)/out:/out \
+		$(TEST_IMAGE) /bin/bash || true
 
 unittest: build-image-test ## Run pytest in synex test container locally and generate coverage report
 	$(DOCKER_RUN_CMD) pytest --cov=. /opt/synex-tests
