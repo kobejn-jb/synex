@@ -1,24 +1,12 @@
 .DEFAULT_GOAL := help
 CURRENT_DIR = $(shell pwd)
-PYTHON_MODULES ?= $(shell find synex -name [a-z]*.py)
-BLACK_EXCLUDE = "/(\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist)/"
 CLEAN_TARGETS = "*.out" "*.tar" "*.tgz" "*.gz"
 
 clean: ## Deletes non essential files
 	for i in $(CLEAN_TARGETS); do find . -name "$$i" -delete; done
-	rm -rf temp
-	rm -rf archive
 
-stylecheck: black pylint ## Runs stylechecker and static code analysis, read only mode
-
-black: ## Runs black stylechecker in read only mode
-	black . -l 120 -S -t py36 --check --diff --exclude $(BLACK_EXCLUDE) > black.out
-
-black-fix: ## Runs black stylechecker in fix mode
-	black . -l 120 -S -t py36 --exclude $(BLACK_EXCLUDE)
-
-pylint: ## Runs pylint static analysis
-	pylint -j 4 ${PYTHON_MODULES} > pylint.out
+prepare: clean ## Creates out dir
+	mkdir -p ${CURRENT_DIR}/out
 
 package: tar ## Creates the application package in the archive dir
 
@@ -34,10 +22,18 @@ tar:
 	-czf archive/synex.tgz synex
 
 # Docker specific Make commands are below
-IMAGE_REGISTRY ?= synex
+IMAGE_REGISTRY ?= kobejn/synex
 TAG ?= 0.1
 IMAGE ?= "$(IMAGE_REGISTRY):$(TAG)"
 TEST_IMAGE ?= "$(IMAGE_REGISTRY):test"
+
+DOCKER_RUN_CMD = docker run --rm \
+		-v $(CURRENT_DIR)/synex/:/opt/synex \
+		-v $(CURRENT_DIR)/synex.conf:/etc/synex.conf \
+		-v $(CURRENT_DIR)/tests:/opt/synex-tests \
+		-v $(CURRENT_DIR)/scripts:/opt/scripts \
+		-v $(CURRENT_DIR)/out:/out \
+		$(TEST_IMAGE)
 
 SENTRY_PROJECT ?= synex
 COMMIT_SHA = `git rev-parse HEAD`
@@ -50,14 +46,23 @@ local-run: build-image-test ## Run bash in synex test container locally
 		-v $(CURRENT_DIR)/synex/:/opt/synex \
 		-v $(CURRENT_DIR)/synex.conf:/etc/synex.conf \
 		-v $(CURRENT_DIR)/tests:/opt/synex-tests \
+		-v $(CURRENT_DIR)/scripts:/opt/scripts \
+		-v $(CURRENT_DIR)/out:/out \
 		$(TEST_IMAGE) /bin/bash || true
 
-unittests: build-image-test ## Run pytest in synex test container locally
-	docker run -it --rm \
-		-v $(CURRENT_DIR)/synex/:/opt/synex \
-		-v $(CURRENT_DIR)/synex.conf:/etc/synex.conf \
-		-v $(CURRENT_DIR)/tests:/opt/synex-tests \
-		$(TEST_IMAGE) pytest --cov=. /opt/synex-tests
+unittest: build-image-test ## Run pytest in synex test container locally and generate coverage report
+	$(DOCKER_RUN_CMD) pytest --cov=. /opt/synex-tests
+
+stylecheck: build-image-test black pylint ## Runs stylechecker and static code analysis, read only mode
+
+black: build-image-test ## Runs black stylechecker in read only mode
+	$(DOCKER_RUN_CMD) /opt/scripts/stylecheck.sh black /out
+
+black-fix: build-image-test ## Runs black stylechecker in fix mode
+	$(DOCKER_RUN_CMD) /opt/scripts/stylecheck.sh black-fix /out
+
+pylint: build-image-test ## Runs pylint static analysis
+	$(DOCKER_RUN_CMD) /opt/scripts/stylecheck.sh pylint /out
 
 build-image-test: ## Build container image for local testing
 	docker build --build-arg UID=$(UID) --build-arg GID=$(GID) --target test -t $(TEST_IMAGE) .
@@ -65,7 +70,7 @@ build-image-test: ## Build container image for local testing
 build-image-release: ## Build release docker image
 	docker build --target release -t $(IMAGE) .
 
-push: ecr_login ## Push Kubernetes type image to Dockerhub. Use variable TAG
+push: ## Push Kubernetes type image to Dockerhub. Use variable TAG
 	docker push $(IMAGE);
 
 help: ## Display this help. Default target

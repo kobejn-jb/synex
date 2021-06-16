@@ -1,7 +1,7 @@
 *.log
 .git
-black.out
-pylint.out
+out
+*.out
 archive
 __pycache__
 .pytest*
