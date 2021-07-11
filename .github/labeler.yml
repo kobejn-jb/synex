@@ -1,0 +1,14 @@
+tests:
+- tests/*.py
+
+bugfix:
+- any: ['synex/**/*.py', 'synex/*.py']
+
+# Add 'frontend` label to any change to *.js files as long as the `main.js` hasn't changed
+frontend:
+- any: ['src/**/*.js']
+  all: ['!src/main.js']
+
+documentation:
+- any: ['**/*.md']
+
