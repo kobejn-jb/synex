@@ -4,6 +4,9 @@ tests:
 bugfix:
 - any: ['synex/**/*.py', 'synex/*.py']
 
+ci-cd:
+- any: ['.github/**/*.yaml', '.github/*.yaml', 'Makefile', 'scripts/*']
+
 # Add 'frontend` label to any change to *.js files as long as the `main.js` hasn't changed
 frontend:
 - any: ['src/**/*.js']
