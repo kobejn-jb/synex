@@ -1,0 +1,14 @@
+tests:
+- tests/**/*
+
+bugfix:
+- any: ['synex/**/*.py', 'synex/*.py']
+
+ci-cd:
+- .github/**/*
+- Makefile
+- scripts/*
+
+documentation:
+- any: ['**/*.md']
+

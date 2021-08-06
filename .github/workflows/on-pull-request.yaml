@@ -6,6 +6,29 @@ on:
       - main
 
 jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Run Labeler
+      if: success()
+      uses: crazy-max/ghaction-github-labeler@v3
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        yaml-file: .github/labels.yaml
+        skip-delete: false
+        dry-run: false
+        exclude: |
+          help*
+          *issue
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/labeler@v3
+      with:
+        repo-token: "${{ secrets.GITHUB_TOKEN }}"
+        configuration-path: .github/labeler.yaml
   build:
     runs-on: ubuntu-latest
     steps:
