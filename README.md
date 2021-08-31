@@ -4,3 +4,5 @@ Synchronize Express is tool for automated files delivery using different prococo
 For now http and rsync are supported.
 
 SynEx periodically checks configured folder for new files and tries to send the to configured endpoint.
+
+CI is implemented using GitHub Actions
