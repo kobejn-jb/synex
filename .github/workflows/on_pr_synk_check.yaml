@@ -15,7 +15,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB }}
-          image_name: kobejn/synex
+          image_name: synex
           image_tag: latest
           push_image_and_stages: false
 
@@ -31,5 +31,5 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB }}
-          image_name: kobejn/synex
+          image_name: synex
           image_tag: latest
