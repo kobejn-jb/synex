@@ -1,0 +1,33 @@
+name: Docker image build and push
+description: "Action used to build Docker Images and push to registry"
+
+on:
+  push:
+
+runs:
+  using: "ubuntu-latest"
+  steps:
+
+    - name: Build image
+      uses: whoan/docker-build-with-cache-action@v5
+      with:
+        username: ${{ secrets.DOCKERHUB_USER)
+        password: ${{ secrets.DOCKERHUB }}
+        image_name: synex
+        image_tag: latest
+        push_image_and_stages: false
+
+    - name: Run Snyk to check Docker image for vulnerabilities
+      uses: snyk/actions/docker@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        image: synex:latest
+
+    - name: Build and push image
+      uses: whoan/docker-build-with-cache-action@v5
+      with:
+        username: ${{ secrets.DOCKERHUB_USER)
+        password: ${{ secrets.DOCKERHUB }}
+        image_name: synex
+        image_tag: latest
