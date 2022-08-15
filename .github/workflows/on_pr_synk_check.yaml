@@ -18,6 +18,10 @@ jobs:
           image_name: synex
           image_tag: latest
           push_image_and_stages: false
+          
+      - name: Sync auth
+        shell: bash
+        run: sync auth ${{ secrets.SYNK_TOKEN }}
 
       - name: Run Snyk to check Docker image for vulnerabilities
         uses: snyk/actions/docker@master
