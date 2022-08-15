@@ -25,6 +25,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: kobejn/synex:latest
+          args: --severity-threshold=high
 
       - name: Build and push image
         uses: whoan/docker-build-with-cache-action@v5
