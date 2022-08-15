@@ -1,0 +1,42 @@
+name: Docker image build and push
+
+on:
+  push:
+
+jobs:
+  synk_check:
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+
+      - name: Build image
+        uses: whoan/docker-build-with-cache-action@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PASS }}
+          image_name: synex
+          image_tag: latest
+          push_image_and_stages: false
+
+      - name: Run Snyk to check Docker image for vulnerabilities
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: kobejn/synex:latest
+          args: --severity-threshold=medium --file=Dockerfile
+
+      - name: Upload result to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: snyk.sarif
+
+      - name: Build and push image
+        uses: whoan/docker-build-with-cache-action@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PASS }}
+          image_name: synex
+          image_tag: latest
